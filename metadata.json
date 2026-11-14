@@ -1,0 +1,6 @@
+{
+  "name": "Elasty",
+  "description": "A kinetic physics puzzle-arcade game with elastic walls, rotating clockwise gravity every 10 seconds, sticky tape obstacles, and level-launching cannons.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
