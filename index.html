@@ -3,22 +3,521 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Elasty — Elastic Physics & Rotating Gravity Arcade</title>
-    <meta name="description" content="Bounce off elastic walls, escape sticky tape obstacles, ride 10-second clockwise gravity shifts, and launch from cannons to clear every level." />
-    <meta property="og:title" content="Elasty — Elastic Physics & Rotating Gravity Arcade" />
-    <meta property="og:description" content="Bounce off elastic walls, escape sticky tape obstacles, ride 10-second clockwise gravity shifts, and launch from cannons to clear every level." />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <title>Elasty — Simple HTML5 Canvas Game</title>
+    <meta name="description" content="Beginner-friendly HTML5 Canvas game with elastic walls, sticky tapes, and level-shooting cannons." />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #0f172a;
+        color: #f8fafc;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        gap: 12px;
+      }
+
+      /* Top info bar */
+      .hud {
+        width: 100%;
+        max-width: 800px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .title {
+        font-size: 22px;
+        font-weight: 800;
+        color: #ffffff;
+      }
+
+      .level-info {
+        font-size: 15px;
+        color: #cbd5e1;
+      }
+
+      .btn {
+        background: #ff5e3a;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .btn:hover {
+        background: #ff7352;
+      }
+
+      .btn-dark {
+        background: #1e293b;
+        border: 1px solid #334155;
+      }
+
+      .btn-dark:hover {
+        background: #334155;
+      }
+
+      /* Game canvas */
+      canvas {
+        width: 100%;
+        max-width: 800px;
+        aspect-ratio: 800 / 500;
+        background: #1e293b;
+        border: 2px solid #334155;
+        border-radius: 10px;
+        display: block;
+      }
+
+      /* Simple legend & controls below canvas */
+      .footer {
+        width: 100%;
+        max-width: 800px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 13px;
+        color: #94a3b8;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+
+      .pad {
+        display: flex;
+        gap: 6px;
+      }
+
+      .pad button {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #1e293b;
+        color: #f8fafc;
+        font-size: 16px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .pad button:active {
+        background: #334155;
+      }
+    </style>
   </head>
-  <body class="bg-[#0B1120] text-slate-100 antialiased selection:bg-[#FF5E3A]/30 selection:text-white">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <body>
+    <!-- 1. Top HUD Bar -->
+    <div class="hud">
+      <div class="title">Elasty</div>
+      <div id="levelText" class="level-info">Level 1 / 6 · First Bounce</div>
+      <button id="restartBtn" class="btn btn-dark" type="button">Restart</button>
+    </div>
+
+    <!-- 2. The Game Screen -->
+    <canvas id="game" width="800" height="500"></canvas>
+
+    <!-- 3. Simple Legend & On-Screen Buttons -->
+    <div class="footer">
+      <div class="legend">
+        <span class="legend-item"><span class="swatch" style="background:#38bdf8"></span> You (WASD / Arrows)</span>
+        <span class="legend-item"><span class="swatch" style="background:#ff5e3a"></span> Elastic Wall</span>
+        <span class="legend-item"><span class="swatch" style="background:#eab308"></span> Sticky Tape</span>
+        <span class="legend-item"><span class="swatch" style="background:#10b981"></span> Cannon Goal</span>
+      </div>
+
+      <div class="pad">
+        <button type="button" data-dir="left" aria-label="Left">←</button>
+        <button type="button" data-dir="up" aria-label="Up">↑</button>
+        <button type="button" data-dir="down" aria-label="Down">↓</button>
+        <button type="button" data-dir="right" aria-label="Right">→</button>
+      </div>
+    </div>
+
+    <script>
+      // 1. SETUP THE CANVAS
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const levelText = document.getElementById("levelText");
+      const restartBtn = document.getElementById("restartBtn");
+
+      // 2. LEVELS (Each wall and tape is just a simple { x, y, w, h } box!)
+      const levels = [
+        {
+          name: "First Bounce",
+          start: { x: 80, y: 250 },
+          cannon: { x: 710, y: 250 },
+          walls: [
+            { x: 240, y: 120, w: 30, h: 260, type: "elastic" },
+            { x: 470, y: 0, w: 30, h: 220, type: "solid" },
+            { x: 470, y: 310, w: 30, h: 190, type: "solid" }
+          ],
+          tapes: []
+        },
+        {
+          name: "Elastic Zig-Zag",
+          start: { x: 80, y: 420 },
+          cannon: { x: 710, y: 90 },
+          walls: [
+            { x: 200, y: 150, w: 30, h: 350, type: "solid" },
+            { x: 400, y: 0, w: 30, h: 340, type: "solid" },
+            { x: 600, y: 160, w: 30, h: 340, type: "solid" },
+            { x: 300, y: 460, w: 90, h: 24, type: "elastic" },
+            { x: 480, y: 20, w: 90, h: 24, type: "elastic" }
+          ],
+          tapes: []
+        },
+        {
+          name: "Sticky Tape",
+          start: { x: 80, y: 250 },
+          cannon: { x: 710, y: 250 },
+          walls: [
+            { x: 360, y: 120, w: 30, h: 260, type: "elastic" }
+          ],
+          tapes: [
+            { x: 240, y: 60, w: 90, h: 120 },
+            { x: 240, y: 320, w: 90, h: 120 },
+            { x: 520, y: 180, w: 70, h: 140 }
+          ]
+        },
+        {
+          name: "Bounce Tunnel",
+          start: { x: 80, y: 90 },
+          cannon: { x: 710, y: 410 },
+          walls: [
+            { x: 0, y: 180, w: 540, h: 26, type: "solid" },
+            { x: 260, y: 320, w: 540, h: 26, type: "solid" },
+            { x: 650, y: 40, w: 26, h: 120, type: "elastic" },
+            { x: 140, y: 240, w: 26, h: 120, type: "elastic" }
+          ],
+          tapes: [
+            { x: 320, y: 40, w: 110, h: 45 },
+            { x: 440, y: 220, w: 100, h: 40 },
+            { x: 420, y: 420, w: 120, h: 45 }
+          ]
+        },
+        {
+          name: "Tape Maze",
+          start: { x: 80, y: 420 },
+          cannon: { x: 400, y: 90 },
+          walls: [
+            { x: 220, y: 140, w: 360, h: 24, type: "solid" },
+            { x: 220, y: 140, w: 24, h: 230, type: "solid" },
+            { x: 556, y: 140, w: 24, h: 230, type: "solid" },
+            { x: 320, y: 465, w: 160, h: 24, type: "elastic" },
+            { x: 740, y: 180, w: 24, h: 160, type: "elastic" }
+          ],
+          tapes: [
+            { x: 100, y: 220, w: 80, h: 70 },
+            { x: 620, y: 220, w: 80, h: 70 },
+            { x: 330, y: 220, w: 140, h: 40 }
+          ]
+        },
+        {
+          name: "Final Cannon",
+          start: { x: 80, y: 250 },
+          cannon: { x: 720, y: 90 },
+          walls: [
+            { x: 210, y: 0, w: 24, h: 310, type: "solid" },
+            { x: 410, y: 190, w: 24, h: 310, type: "solid" },
+            { x: 590, y: 0, w: 24, h: 330, type: "solid" },
+            { x: 250, y: 460, w: 130, h: 24, type: "elastic" },
+            { x: 450, y: 20, w: 120, h: 24, type: "elastic" },
+            { x: 630, y: 450, w: 140, h: 24, type: "elastic" }
+          ],
+          tapes: [
+            { x: 290, y: 220, w: 70, h: 80 },
+            { x: 470, y: 280, w: 75, h: 80 },
+            { x: 660, y: 230, w: 85, h: 60 }
+          ]
+        }
+      ];
+
+      // 3. GAME STATE
+      let currentLevel = 0;
+      let wonGame = false;
+      let cannonShooting = false;
+      let shootTimer = 0;
+
+      const player = {
+        x: 80,
+        y: 250,
+        vx: 0,
+        vy: 0,
+        r: 16,
+        onTape: false
+      };
+
+      const keys = { left: false, right: false, up: false, down: false };
+
+      function loadLevel(index) {
+        currentLevel = index;
+        wonGame = false;
+        cannonShooting = false;
+        shootTimer = 0;
+
+        const lvl = levels[currentLevel];
+        player.x = lvl.start.x;
+        player.y = lvl.start.y;
+        player.vx = 0;
+        player.vy = 0;
+        player.onTape = false;
+
+        levelText.textContent = "Level " + (currentLevel + 1) + " / " + levels.length + " · " + lvl.name;
+      }
+
+      // 4. KEYBOARD & BUTTON CONTROLS
+      window.addEventListener("keydown", (e) => {
+        const k = e.key.toLowerCase();
+        if (k === "a" || k === "arrowleft") keys.left = true;
+        if (k === "d" || k === "arrowright") keys.right = true;
+        if (k === "w" || k === "arrowup") keys.up = true;
+        if (k === "s" || k === "arrowdown") keys.down = true;
+        if (["arrowleft", "arrowright", "arrowup", "arrowdown", " "].includes(k)) {
+          e.preventDefault();
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        const k = e.key.toLowerCase();
+        if (k === "a" || k === "arrowleft") keys.left = false;
+        if (k === "d" || k === "arrowright") keys.right = false;
+        if (k === "w" || k === "arrowup") keys.up = false;
+        if (k === "s" || k === "arrowdown") keys.down = false;
+      });
+
+      // On-screen button support
+      document.querySelectorAll(".pad button").forEach((btn) => {
+        const dir = btn.dataset.dir;
+        btn.addEventListener("pointerdown", () => (keys[dir] = true));
+        btn.addEventListener("pointerup", () => (keys[dir] = false));
+        btn.addEventListener("pointerleave", () => (keys[dir] = false));
+      });
+
+      restartBtn.addEventListener("click", () => loadLevel(0));
+
+      // Helper: check if circle touches rectangle
+      function hitRect(circle, rect) {
+        const closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.w));
+        const closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.h));
+        const dx = circle.x - closestX;
+        const dy = circle.y - closestY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < circle.r) {
+          return { dx, dy, dist };
+        }
+        return null;
+      }
+
+      // 5. UPDATE PLAYER & COLLISIONS
+      function update() {
+        if (wonGame) return;
+
+        const lvl = levels[currentLevel];
+
+        // If inside cannon, shoot player to next level!
+        if (cannonShooting) {
+          shootTimer++;
+          player.x += 14;
+          player.y -= 5;
+          if (shootTimer > 35) {
+            if (currentLevel + 1 < levels.length) {
+              loadLevel(currentLevel + 1);
+            } else {
+              wonGame = true;
+            }
+          }
+          return;
+        }
+
+        // Check if player is touching sticky tape
+        player.onTape = lvl.tapes.some((tape) => hitRect(player, tape) !== null);
+
+        // Move speed (slower on tape!)
+        const speed = player.onTape ? 0.25 : 0.7;
+        if (keys.left) player.vx -= speed;
+        if (keys.right) player.vx += speed;
+        if (keys.up) player.vy -= speed;
+        if (keys.down) player.vy += speed;
+
+        // Smooth friction (no gravity!)
+        const friction = player.onTape ? 0.72 : 0.9;
+        player.vx *= friction;
+        player.vy *= friction;
+
+        // Keep max speed reasonable
+        const maxSpeed = 11;
+        const totalSpeed = Math.hypot(player.vx, player.vy);
+        if (totalSpeed > maxSpeed) {
+          player.vx = (player.vx / totalSpeed) * maxSpeed;
+          player.vy = (player.vy / totalSpeed) * maxSpeed;
+        }
+
+        // Move player
+        player.x += player.vx;
+        player.y += player.vy;
+
+        // Keep player inside the screen edges
+        if (player.x - player.r < 0) {
+          player.x = player.r;
+          player.vx = Math.abs(player.vx) * 0.6;
+        }
+        if (player.x + player.r > canvas.width) {
+          player.x = canvas.width - player.r;
+          player.vx = -Math.abs(player.vx) * 0.6;
+        }
+        if (player.y - player.r < 0) {
+          player.y = player.r;
+          player.vy = Math.abs(player.vy) * 0.6;
+        }
+        if (player.y + player.r > canvas.height) {
+          player.y = canvas.height - player.r;
+          player.vy = -Math.abs(player.vy) * 0.6;
+        }
+
+        // Check solid & elastic walls
+        for (const wall of lvl.walls) {
+          const hit = hitRect(player, wall);
+          if (!hit) continue;
+
+          // Push player out of the wall
+          const nx = hit.dist > 0 ? hit.dx / hit.dist : 0;
+          const ny = hit.dist > 0 ? hit.dy / hit.dist : -1;
+          const push = player.r - hit.dist;
+          player.x += nx * push;
+          player.y += ny * push;
+
+          // Bounce! Elastic walls bounce much harder
+          const dot = player.vx * nx + player.vy * ny;
+          if (dot < 0) {
+            if (wall.type === "elastic") {
+              player.vx = (player.vx - 2 * dot * nx) * 1.4 + nx * 6;
+              player.vy = (player.vy - 2 * dot * ny) * 1.4 + ny * 6;
+            } else {
+              player.vx = (player.vx - 2 * dot * nx) * 0.5;
+              player.vy = (player.vy - 2 * dot * ny) * 0.5;
+            }
+          }
+        }
+
+        // Check if player reached the cannon
+        const distToCannon = Math.hypot(player.x - lvl.cannon.x, player.y - lvl.cannon.y);
+        if (distToCannon < 32) {
+          cannonShooting = true;
+          shootTimer = 0;
+          player.x = lvl.cannon.x;
+          player.y = lvl.cannon.y;
+        }
+      }
+
+      // 6. DRAW EVERYTHING
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const lvl = levels[currentLevel];
+
+        // Draw sticky tapes
+        for (const tape of lvl.tapes) {
+          ctx.fillStyle = "#eab308";
+          ctx.fillRect(tape.x, tape.y, tape.w, tape.h);
+          ctx.strokeStyle = "#fef08a";
+          ctx.strokeRect(tape.x, tape.y, tape.w, tape.h);
+        }
+
+        // Draw solid & elastic walls
+        for (const wall of lvl.walls) {
+          ctx.fillStyle = wall.type === "elastic" ? "#ff5e3a" : "#475569";
+          ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+        }
+
+        // Draw the cannon
+        ctx.save();
+        ctx.translate(lvl.cannon.x, lvl.cannon.y);
+        ctx.fillStyle = "#10b981";
+        ctx.beginPath();
+        ctx.arc(0, 0, 22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#064e3b";
+        ctx.fillRect(0, -10, 28, 20);
+        ctx.restore();
+
+        // Draw the player
+        ctx.fillStyle = player.onTape ? "#facc15" : "#38bdf8";
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Sticky label when on tape
+        if (player.onTape && !cannonShooting) {
+          ctx.fillStyle = "#fef08a";
+          ctx.font = "bold 13px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("Stuck on tape!", player.x, player.y - 24);
+        }
+
+        // Cannon firing message
+        if (cannonShooting) {
+          ctx.fillStyle = "#34d399";
+          ctx.font = "bold 20px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("BOOM! Next Level!", canvas.width / 2, 48);
+        }
+
+        // Victory screen
+        if (wonGame) {
+          ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 36px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("You Cleared All Levels!", canvas.width / 2, 230);
+          ctx.fillStyle = "#94a3b8";
+          ctx.font = "18px system-ui";
+          ctx.fillText("Click Restart to play again", canvas.width / 2, 270);
+        }
+      }
+
+      // 7. GAME LOOP
+      function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      loadLevel(0);
+      loop();
+    </script>
   </body>
 </html>
-
